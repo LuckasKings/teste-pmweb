@@ -22,9 +22,10 @@ Execução das consultas analíticas.
 
 2. Modelo de Dados (DER)
 
-'''mermaid
-    erDiagram
-    CLIENTES ||--o{ PEDIDOS : "realiza"
+'''
+
+mermaid
+erDiagramCLIENTES ||--o{ PEDIDOS : "realiza"
 
     CLIENTES {
         int ID PK
