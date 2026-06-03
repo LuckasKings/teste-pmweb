@@ -1,30 +1,58 @@
-Projeto de Integração, Consolidação e Arquitetura de Dados - PMWEB
-Objetivo
-Este projeto implementa uma solução completa de dados abordando desde processos de ETL (Extract, Transform and Load) com SQL Server até estratégias avançadas de Arquitetura, Governança e processamento em tempo real (Event-Driven). O repositório reflete as entregas da Avaliação Técnica - Data Services, dividida em duas grandes frentes operacionais e estratégicas.
+# Projeto de Integração, Consolidação e Arquitetura de Dados - PMWEB
 
-Parte 1: Engenharia de Dados e Analytics (Data Analyst)
-Esta etapa abrange a importação de arquivos CSV, modelagem de dados, tratamento, carga para tabelas de produção e geração de análises de negócio.
+## Objetivo
 
-1. Arquitetura da Solução
+Este projeto implementa uma solução completa de dados, contemplando desde processos de **ETL (Extract, Transform and Load)** em SQL Server até estratégias avançadas de **Arquitetura de Dados, Governança, Observabilidade e Processamento em Tempo Real (Event-Driven)**.
+
+O repositório representa a entrega da **Avaliação Técnica - Data Services**, dividida em duas frentes complementares:
+
+* **Parte 1:** Engenharia de Dados e Analytics
+* **Parte 2:** Arquitetura Escalável, Governança e Estratégia de Dados
+
+---
+
+# Parte 1 - Engenharia de Dados e Analytics
+
+## Arquitetura da Solução
+
 O fluxo de processamento segue as etapas abaixo:
 
-Criação da base de dados e estruturas de staging.
+```text
+CSV Files
+    │
+    ▼
+Staging Tables
+    │
+    ▼
+SP_INTEGRACAO_DADOS
+    │
+    ▼
+Tabelas de Produção
+    │
+    ▼
+Logs e Auditoria
+    │
+    ▼
+Consultas Analíticas
+```
 
-Importação dos arquivos CSV para tabelas temporárias.
+### Etapas do Processo
 
-Execução da procedure de integração (higienização, conversão de tipos e carga).
+1. Criação da base de dados e tabelas de staging.
+2. Importação dos arquivos CSV.
+3. Tratamento e padronização dos dados.
+4. Carga incremental utilizando `MERGE`.
+5. Registro de logs e auditoria.
+6. Disponibilização dos dados para análises.
 
-Carga nas tabelas finais via instrução MERGE.
+---
 
-Registro de auditoria e logs de execução.
+## Modelo de Dados (DER)
 
-Execução das consultas analíticas.
+```mermaid
+erDiagram
 
-2. Modelo de Dados (DER)
-
-'''mermaid
-
-erDiagramCLIENTES ||--o{ PEDIDOS : "realiza"
+    CLIENTES ||--o{ PEDIDOS : "realiza"
 
     CLIENTES {
         int ID PK
@@ -81,71 +109,340 @@ erDiagramCLIENTES ||--o{ PEDIDOS : "realiza"
         varchar MEIO_PAGTO
         varchar STATUS_PAGAMENTO
     }
-    '''
-3.Estrutura de Arquivos da Parte 1
-Arquivo,Descrição
-01_ddl_e_staging.sql,"Criação do banco de dados e tabelas de produção, staging e log"
-02_procedure_integracao.sql,Procedure responsável pelo processo de integração e carga
-03_bulk_insert.sql,Importação dos arquivos CSV para staging
-04_consolidacoes_item4.sql,Consultas analíticas e indicadores de negócio
+```
 
+---
 
-4. Processo de Carga (ETL)
-Importação (Bulk Insert): Os dados são inicialmente movidos para tabelas de Staging (STG_CLIENTES, STG_PEDIDOS).
+## Estrutura dos Arquivos
 
-Tratamento e Transformação (SP_INTEGRACAO_DADOS): Realiza remoção de espaços em branco, padronização de UF, conversão de datas/moedas, validação de registros nulos e operações transacionais seguras (COMMIT/ROLLBACK).
+| Arquivo                       | Descrição                                                      |
+| ----------------------------- | -------------------------------------------------------------- |
+| `01_ddl_e_staging.sql`        | Criação do banco de dados, tabelas de produção, staging e logs |
+| `02_procedure_integracao.sql` | Procedure responsável pela integração e carga dos dados        |
+| `03_bulk_insert.sql`          | Importação dos arquivos CSV para staging                       |
+| `04_consolidacoes_item4.sql`  | Consultas analíticas e indicadores de negócio                  |
 
-Controle e Logging: Cada execução grava um histórico na tabela LOG_RODADA, garantindo rastreabilidade do tempo de execução e volumetria processada.
+---
 
-5. Consultas Analíticas Implementadas
-Pedidos Parcelados por Cliente: Agrupados por semestre e ano (excluindo cancelados).
+## Processo ETL
 
-Ticket Médio por Cliente: Agrupamento por ano e mês.
+### 1. Importação
 
-Intervalo Médio Entre Compras: Em dias, utilizando a função LAG().
+Os arquivos CSV são carregados para as tabelas:
 
-Tiers de Clientes: Classificação de gasto mensal (Básico, Prata, Ouro, Super).
+* `STG_CLIENTES`
+* `STG_PEDIDOS`
 
-Comparativo YoY (2019 x 2020): Variação percentual de vendas para departamentos específicos.
-  
-Parte 2: Sênior & Especialista (Arquitetura, Engenharia Escalável e Negócio)
-Esta seção aborda desafios arquiteturais para sistemas escaláveis, observabilidade, performance tuning e integrações modernas.
+através de comandos **BULK INSERT**.
 
-1. Engenharia de Dados & Observabilidade (High Complexity)
-Arquivo: 01_eng_dados_observ.sql
+### 2. Transformação e Tratamento
 
-Data Lineage & Audit: Implementação de arquitetura de logs capturando Trace ID único por execução, volumetria de entrada vs. saída e tempo de processamento por etapa (ETL_AUDIT_LOG).
+A procedure `SP_INTEGRACAO_DADOS` executa:
 
-Resiliência (Fault Tolerance): Pipeline preparado para retomas automáticas (Checkpointing). Em caso de falha de lote massivo, a tabela ETL_CHECKPOINT armazena o último ID processado para continuidade segura.
+* Remoção de espaços em branco;
+* Conversão de tipos de dados;
+* Padronização de estados (UF);
+* Conversão de datas e valores monetários;
+* Validação de registros inválidos;
+* Controle transacional com `COMMIT` e `ROLLBACK`.
 
-Sanitização Avançada: Tratamento em T-SQL para padronizar nomes (Proper Case), validar e-mails (Regex) e aplicar lógicas de preenchimento inteligente em campos nulos críticos.
+### 3. Carga
 
-2. Inteligência Aplicada (SQL & Analytics)
-Arquivo: 02_kpis_avancados.sql
-Scripts otimizados empregando Window Functions e CTEs para geração de KPIs avançados:
+Utilização de instruções `MERGE` para:
 
-Next Best Action (NBA): Cruzamento do departamento favorito do cliente com os produtos de maior giro da categoria para recomendação preditiva.
+* Inserção de novos registros;
+* Atualização de registros existentes.
 
-LTV (Lifetime Value): Cálculo do valor histórico gerado pelo cliente desde a primeira transação, aplicando agrupamento distributivo em decis (NTILE(10)).
+### 4. Auditoria
 
-Detecção de Anomalias: Identificação de pedidos outliers, sinalizando valores unitários que ultrapassam 3 desvios padrão acima da média da respectiva categoria (Z-Score).
+Cada execução registra:
 
-3. Arquitetura & Governança (Desafio Teórico)
-SCD Tipo 4 (Histórico Rápido de Crédito): Para evitar inflar a dimensão de clientes com atributos altamente voláteis (Score/Status de Crédito), implementa-se uma Mini-Dimension (Dim_Perfil_Credito). A tabela Fato transacional grava a Surrogate Key do perfil ativo no momento da compra, isolando as mudanças sem sobrecarregar processamento ou armazenamento.
+* Data e hora de início;
+* Data e hora de término;
+* Quantidade de registros processados;
+* Status da execução;
+* Mensagens de erro ou sucesso.
 
-Performance Tuning para 100M+ Linhas: Otimização de joins para dashboards em tempo real utilizando índices colunares (Clustered Columnstore Index), particionamento de tabelas por data, eliminação estrita de conversões implícitas (mantendo SARGable predicates) e materialização via Indexed Views para os agregados principais.
+---
 
-4. Case Especialista: Estratégia CRM (Salesforce / Data Cloud)
-Golden Record (Identidade Única): Em caso de múltiplos sistemas, utiliza-se regras de correspondência (Matching Rules - Exato/Fuzzy) combinadas a regras de sobrevivência (Survivorship Rules - Recência/Prioridade da Fonte) para criar o Unified Individual ID. O dado retém o Data Lineage de todos os IDs de origem.
+## Consultas Analíticas Implementadas
 
-Mascaramento de PII: Implementação de Dynamic Data Masking (DDM) e Hashing Determinístico (SHA-256) nas visualizações de Analytics, mantendo a utilidade do dado para modelagem estatística. Para automações de Marketing, ferramentas disparam integrações que revertem os tokens com permissões estritas para ativação.
+### Pedidos Parcelados por Cliente
 
-5. Desafios de Arquitetura Elite
-Zero-Copy Integration & Data Sharing: Abandono de processos morosos de ETL/FTP físico em prol do compartilhamento direto pela camada semântica (ex: Snowflake Data Sharing, Delta Sharing). Cria-se Secure Views protegidas por Row-Level Security (RLS), onde o parceiro externo consome os dados em tempo real arcando com seu próprio compute (Reader Accounts).
+* Agrupamento por semestre e ano;
+* Exclusão de pedidos cancelados.
 
-Event-Driven Data Processing (< 5 Segundos):
-Arquitetura reativa baseada em eventos. A mudança (novo pedido) é capturada via Change Data Capture (CDC) com Debezium no Transaction Log do banco. O evento é lançado em um tópico do Apache Kafka, processado por Apache Flink (recalculando Tiers) e disparado via Webhooks/Lambda direto para a API do CRM, garantindo escalabilidade e baixíssima latência.
+### Ticket Médio por Cliente
 
+* Agrupamento mensal;
+* Evolução temporal do consumo.
 
+### Intervalo Médio Entre Compras
 
+Utilização da função:
 
+```sql
+LAG()
+```
+
+para calcular o tempo médio entre pedidos.
+
+### Tiers de Clientes
+
+Classificação baseada no gasto mensal:
+
+| Tier   | Faixa                |
+| ------ | -------------------- |
+| Básico | Menor volume         |
+| Prata  | Volume intermediário |
+| Ouro   | Alto volume          |
+| Super  | Clientes premium     |
+
+### Comparativo YoY (2019 x 2020)
+
+Análise da variação percentual de vendas por departamento.
+
+---
+
+# Parte 2 - Arquitetura, Engenharia Escalável e Estratégia de Dados
+
+## Engenharia de Dados & Observabilidade
+
+**Arquivo:** `01_eng_dados_observ.sql`
+
+### Data Lineage e Auditoria
+
+Implementação da tabela:
+
+```sql
+ETL_AUDIT_LOG
+```
+
+Registrando:
+
+* Trace ID único;
+* Tempo por etapa;
+* Volumetria de entrada e saída;
+* Status das execuções.
+
+### Resiliência e Fault Tolerance
+
+Implementação de:
+
+```sql
+ETL_CHECKPOINT
+```
+
+Permitindo retomada automática do processamento após falhas.
+
+### Sanitização Avançada
+
+Inclui:
+
+* Proper Case para nomes;
+* Validação de e-mails;
+* Tratamento inteligente de nulos;
+* Regras de qualidade de dados.
+
+---
+
+## Inteligência Aplicada (SQL & Analytics)
+
+**Arquivo:** `02_kpis_avancados.sql`
+
+### Next Best Action (NBA)
+
+Recomendação de produtos baseada em:
+
+* Departamento favorito do cliente;
+* Produtos de maior giro da categoria.
+
+### Lifetime Value (LTV)
+
+Cálculo do valor histórico gerado pelo cliente utilizando:
+
+```sql
+NTILE(10)
+```
+
+para segmentação em decis.
+
+### Detecção de Anomalias
+
+Uso de Z-Score para identificar:
+
+* Pedidos com valores atípicos;
+* Possíveis inconsistências ou fraudes.
+
+---
+
+## Arquitetura & Governança
+
+## SCD Tipo 4 (Histórico de Crédito com Mini-Dimension)
+
+Para evitar o crescimento excessivo da dimensão de clientes causado por atributos altamente voláteis, como Score, Status de Crédito e Classificação de Risco, foi adotada uma estratégia de SCD Tipo 4 (Mini-Dimension).
+
+Dim_Cliente: mantém apenas atributos estáveis (Nome, CPF, Data de Nascimento, Gênero), possuindo uma única linha por cliente.
+
+Dim_Perfil_Credito: mini-dimensão responsável por armazenar combinações de perfis de crédito, como Faixa de Score, Status e Nível de Risco, reduzindo a necessidade de versionamento constante da dimensão principal.
+
+Fato_Pedidos: registra tanto a SK_Cliente quanto a SK_Perfil_Credito vigente no momento da transação, preservando o contexto histórico sem alterar registros anteriores.
+
+Fato_Historico_Credito (Opcional): tabela factless utilizada para rastrear períodos de permanência em cada perfil de crédito, permitindo análises temporais e auditoria completa das mudanças.
+
+Benefícios: menor crescimento da dimensão principal, melhor performance em consultas analíticas, redução de armazenamento e preservação eficiente do histórico de crédito.
+---
+
+## Performance para Ambientes com 100M+ Registros
+
+Estratégias adotadas:
+
+### Clustered Columnstore Index
+
+Otimização para cargas analíticas massivas.
+
+### Particionamento
+
+Partições por data para:
+
+* Redução de I/O;
+* Melhor paralelismo.
+
+### Predicados SARGables
+
+Eliminação de conversões implícitas em filtros.
+
+### Indexed Views
+
+Materialização de agregações críticas para dashboards.
+
+---
+
+## Estratégia CRM (Salesforce / Data Cloud)
+
+### Golden Record
+
+Construção de uma identidade única utilizando:
+
+#### Matching Rules
+
+* Exatas (Exact Match)
+* Aproximadas (Fuzzy Match)
+
+#### Survivorship Rules
+
+* Recência
+* Prioridade da fonte
+
+Resultado:
+
+```text
+Unified Individual ID
+```
+
+com rastreabilidade completa dos identificadores de origem.
+
+---
+
+### Proteção de Dados (PII)
+
+Aplicação de:
+
+* Dynamic Data Masking (DDM);
+* Hashing Determinístico (SHA-256);
+* Controle de acesso por perfil.
+
+Garantindo conformidade e segurança dos dados.
+
+---
+
+## Arquitetura Moderna de Compartilhamento
+
+### Zero-Copy Integration
+
+Substituição de processos tradicionais de ETL por:
+
+* Snowflake Data Sharing;
+* Delta Sharing;
+* Secure Views;
+* Row-Level Security (RLS).
+
+Benefícios:
+
+* Menor custo operacional;
+* Dados em tempo real;
+* Governança centralizada.
+
+---
+
+## Processamento Event-Driven (< 5 segundos)
+
+Arquitetura reativa baseada em eventos:
+
+```text
+Banco de Dados
+      │
+      ▼
+Debezium (CDC)
+      │
+      ▼
+Apache Kafka
+      │
+      ▼
+Apache Flink
+      │
+      ▼
+Webhook / Lambda
+      │
+      ▼
+CRM
+```
+
+### Fluxo
+
+1. Novo pedido é gravado no banco.
+2. Debezium captura a alteração via CDC.
+3. Evento publicado no Kafka.
+4. Apache Flink processa e recalcula indicadores.
+5. CRM recebe atualização em tempo real.
+
+### Benefícios
+
+✅ Baixa latência (< 5s)
+
+✅ Escalabilidade horizontal
+
+✅ Processamento assíncrono
+
+✅ Integração em tempo real
+
+---
+
+# Tecnologias Utilizadas
+
+* SQL Server
+* T-SQL
+* BULK INSERT
+* MERGE
+* Window Functions
+* Apache Kafka
+* Apache Flink
+* Debezium
+* Salesforce Data Cloud
+* Snowflake
+* Delta Sharing
+
+---
+
+# Considerações Finais
+
+Este projeto demonstra uma abordagem completa de engenharia e arquitetura de dados, contemplando:
+
+* Integração e qualidade de dados;
+* Observabilidade e auditoria;
+* Analytics e KPIs avançados;
+* Governança corporativa;
+* Arquiteturas modernas orientadas a eventos;
+* Estratégias escaláveis para ambientes de grande volume.
+
+O resultado é uma plataforma preparada para suportar cenários analíticos e operacionais de alta complexidade, mantendo rastreabilidade, performance e governança de ponta a ponta.
