@@ -1,7 +1,7 @@
 # teste-pmweb
 
 
-
+```mermaid
 erDiagram
     CLIENTES ||--o{ PEDIDOS : "realiza"
     
@@ -37,3 +37,5 @@ erDiagram
         varchar(50) STATUS_RODADA
         varchar MENSAGEM
     }
+
+```
