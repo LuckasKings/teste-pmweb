@@ -1,29 +1,29 @@
-# Projeto de Integração e Consolidação de Dados - PMWEB
+Projeto de Integração, Consolidação e Arquitetura de Dados - PMWEB
+Objetivo
+Este projeto implementa uma solução completa de dados abordando desde processos de ETL (Extract, Transform and Load) com SQL Server até estratégias avançadas de Arquitetura, Governança e processamento em tempo real (Event-Driven). O repositório reflete as entregas da Avaliação Técnica - Data Services, dividida em duas grandes frentes operacionais e estratégicas.
 
-## Objetivo
+Parte 1: Engenharia de Dados e Analytics (Data Analyst)
+Esta etapa abrange a importação de arquivos CSV, modelagem de dados, tratamento, carga para tabelas de produção e geração de análises de negócio.
 
-Este projeto implementa um processo de ETL (Extract, Transform and Load) utilizando SQL Server para integração de dados de clientes e pedidos a partir de arquivos CSV, realizando tratamento, padronização, carga para tabelas de produção e geração de análises de negócio.
-
----
-
-# Arquitetura da Solução
-
+1. Arquitetura da Solução
 O fluxo de processamento segue as etapas abaixo:
 
-1. Criação da base de dados e estruturas de staging.
-2. Importação dos arquivos CSV para tabelas temporárias.
-3. Execução da procedure de integração.
-4. Tratamento e validação dos dados.
-5. Carga nas tabelas finais.
-6. Registro da execução em log.
-7. Execução das consultas analíticas.
+Criação da base de dados e estruturas de staging.
 
----
+Importação dos arquivos CSV para tabelas temporárias.
 
-# Modelo de Dados (DER)
+Execução da procedure de integração (higienização, conversão de tipos e carga).
 
-```mermaid
-erDiagram
+Carga nas tabelas finais via instrução MERGE.
+
+Registro de auditoria e logs de execução.
+
+Execução das consultas analíticas.
+
+2. Modelo de Dados (DER)
+
+'''mermaid
+    erDiagram
     CLIENTES ||--o{ PEDIDOS : "realiza"
 
     CLIENTES {
@@ -81,330 +81,71 @@ erDiagram
         varchar MEIO_PAGTO
         varchar STATUS_PAGAMENTO
     }
-```
+    '''
+3.Estrutura de Arquivos da Parte 1
+Arquivo,Descrição
+01_ddl_e_staging.sql,"Criação do banco de dados e tabelas de produção, staging e log"
+02_procedure_integracao.sql,Procedure responsável pelo processo de integração e carga
+03_bulk_insert.sql,Importação dos arquivos CSV para staging
+04_consolidacoes_item4.sql,Consultas analíticas e indicadores de negócio
 
----
 
-# Estrutura dos Arquivos
+4. Processo de Carga (ETL)
+Importação (Bulk Insert): Os dados são inicialmente movidos para tabelas de Staging (STG_CLIENTES, STG_PEDIDOS).
 
-| Arquivo                       | Descrição                                                      |
-| ----------------------------- | -------------------------------------------------------------- |
-| `01_ddl_e_staging.sql`        | Criação do banco de dados e tabelas de produção, staging e log |
-| `02_procedure_integracao.sql` | Procedure responsável pelo processo de integração e carga      |
-| `03_bulk_insert.sql`          | Importação dos arquivos CSV para staging                       |
-| `04_consolidacoes_item4.sql`  | Consultas analíticas e indicadores de negócio                  |
+Tratamento e Transformação (SP_INTEGRACAO_DADOS): Realiza remoção de espaços em branco, padronização de UF, conversão de datas/moedas, validação de registros nulos e operações transacionais seguras (COMMIT/ROLLBACK).
 
----
+Controle e Logging: Cada execução grava um histórico na tabela LOG_RODADA, garantindo rastreabilidade do tempo de execução e volumetria processada.
 
-# Estrutura das Tabelas
+5. Consultas Analíticas Implementadas
+Pedidos Parcelados por Cliente: Agrupados por semestre e ano (excluindo cancelados).
 
-## CLIENTES
+Ticket Médio por Cliente: Agrupamento por ano e mês.
 
-Tabela principal contendo os dados cadastrais dos clientes.
+Intervalo Médio Entre Compras: Em dias, utilizando a função LAG().
 
-| Campo                  | Tipo         |
-| ---------------------- | ------------ |
-| ID                     | INT          |
-| EMAIL                  | VARCHAR(255) |
-| NOME                   | VARCHAR(255) |
-| DATA_NASCIMENTO        | DATE         |
-| CIDADE                 | VARCHAR(100) |
-| UF                     | CHAR(2)      |
-| PERMISSAO_RECEBE_EMAIL | BIT          |
+Tiers de Clientes: Classificação de gasto mensal (Básico, Prata, Ouro, Super).
 
----
+Comparativo YoY (2019 x 2020): Variação percentual de vendas para departamentos específicos.
+  
+Parte 2: Sênior & Especialista (Arquitetura, Engenharia Escalável e Negócio)
+Esta seção aborda desafios arquiteturais para sistemas escaláveis, observabilidade, performance tuning e integrações modernas.
 
-## PEDIDOS
+1. Engenharia de Dados & Observabilidade (High Complexity)
+Arquivo: 01_eng_dados_observ.sql
 
-Tabela contendo os pedidos realizados pelos clientes.
+Data Lineage & Audit: Implementação de arquitetura de logs capturando Trace ID único por execução, volumetria de entrada vs. saída e tempo de processamento por etapa (ETL_AUDIT_LOG).
 
-| Campo            | Tipo          |
-| ---------------- | ------------- |
-| ID_CLIENTE       | INT           |
-| ID_PEDIDO        | INT           |
-| ID_PRODUTO       | INT           |
-| DEPARTAMENTO     | VARCHAR(100)  |
-| QUANTIDADE       | INT           |
-| VALOR_UNITARIO   | DECIMAL(10,2) |
-| PARCELAS         | INT           |
-| DATA_PEDIDO      | DATE          |
-| MEIO_PAGAMENTO   | VARCHAR(50)   |
-| STATUS_PAGAMENTO | VARCHAR(50)   |
+Resiliência (Fault Tolerance): Pipeline preparado para retomas automáticas (Checkpointing). Em caso de falha de lote massivo, a tabela ETL_CHECKPOINT armazena o último ID processado para continuidade segura.
 
----
+Sanitização Avançada: Tratamento em T-SQL para padronizar nomes (Proper Case), validar e-mails (Regex) e aplicar lógicas de preenchimento inteligente em campos nulos críticos.
 
-## LOG_RODADA
+2. Inteligência Aplicada (SQL & Analytics)
+Arquivo: 02_kpis_avancados.sql
+Scripts otimizados empregando Window Functions e CTEs para geração de KPIs avançados:
 
-Tabela responsável pelo monitoramento das execuções do ETL.
+Next Best Action (NBA): Cruzamento do departamento favorito do cliente com os produtos de maior giro da categoria para recomendação preditiva.
 
-| Campo                    | Tipo         |
-| ------------------------ | ------------ |
-| ID_LOG                   | INT          |
-| DATA_INICIO              | DATETIME     |
-| DATA_FIM                 | DATETIME     |
-| QTD_CLIENTES_PROCESSADOS | INT          |
-| QTD_PEDIDOS_PROCESSADOS  | INT          |
-| STATUS_RODADA            | VARCHAR(50)  |
-| MENSAGEM                 | VARCHAR(MAX) |
+LTV (Lifetime Value): Cálculo do valor histórico gerado pelo cliente desde a primeira transação, aplicando agrupamento distributivo em decis (NTILE(10)).
 
----
+Detecção de Anomalias: Identificação de pedidos outliers, sinalizando valores unitários que ultrapassam 3 desvios padrão acima da média da respectiva categoria (Z-Score).
 
-# Processo de Carga
+3. Arquitetura & Governança (Desafio Teórico)
+SCD Tipo 4 (Histórico Rápido de Crédito): Para evitar inflar a dimensão de clientes com atributos altamente voláteis (Score/Status de Crédito), implementa-se uma Mini-Dimension (Dim_Perfil_Credito). A tabela Fato transacional grava a Surrogate Key do perfil ativo no momento da compra, isolando as mudanças sem sobrecarregar processamento ou armazenamento.
 
-## 1. Importação dos Arquivos
+Performance Tuning para 100M+ Linhas: Otimização de joins para dashboards em tempo real utilizando índices colunares (Clustered Columnstore Index), particionamento de tabelas por data, eliminação estrita de conversões implícitas (mantendo SARGable predicates) e materialização via Indexed Views para os agregados principais.
 
-Os arquivos CSV são carregados para as tabelas de staging utilizando BULK INSERT.
+4. Case Especialista: Estratégia CRM (Salesforce / Data Cloud)
+Golden Record (Identidade Única): Em caso de múltiplos sistemas, utiliza-se regras de correspondência (Matching Rules - Exato/Fuzzy) combinadas a regras de sobrevivência (Survivorship Rules - Recência/Prioridade da Fonte) para criar o Unified Individual ID. O dado retém o Data Lineage de todos os IDs de origem.
 
-```sql
-BULK INSERT STG_CLIENTES
-FROM 'C:\Integracao\CADASTROS.csv';
+Mascaramento de PII: Implementação de Dynamic Data Masking (DDM) e Hashing Determinístico (SHA-256) nas visualizações de Analytics, mantendo a utilidade do dado para modelagem estatística. Para automações de Marketing, ferramentas disparam integrações que revertem os tokens com permissões estritas para ativação.
 
-BULK INSERT STG_PEDIDOS
-FROM 'C:\Integracao\PEDIDOS.csv';
-```
+5. Desafios de Arquitetura Elite
+Zero-Copy Integration & Data Sharing: Abandono de processos morosos de ETL/FTP físico em prol do compartilhamento direto pela camada semântica (ex: Snowflake Data Sharing, Delta Sharing). Cria-se Secure Views protegidas por Row-Level Security (RLS), onde o parceiro externo consome os dados em tempo real arcando com seu próprio compute (Reader Accounts).
 
----
+Event-Driven Data Processing (< 5 Segundos):
+Arquitetura reativa baseada em eventos. A mudança (novo pedido) é capturada via Change Data Capture (CDC) com Debezium no Transaction Log do banco. O evento é lançado em um tópico do Apache Kafka, processado por Apache Flink (recalculando Tiers) e disparado via Webhooks/Lambda direto para a API do CRM, garantindo escalabilidade e baixíssima latência.
 
-## 2. Tratamento dos Dados
 
-A procedure `SP_INTEGRACAO_DADOS` realiza:
 
-### Clientes
 
-* Remoção de espaços em branco.
-* Conversão de tipos.
-* Conversão de datas.
-* Padronização de UF.
-* Atualização de registros existentes.
-* Inclusão de novos registros.
-
-Utilizando comando:
-
-```sql
-MERGE CLIENTES
-```
-
----
-
-### Pedidos
-
-* Conversão de campos numéricos.
-* Conversão de datas.
-* Tratamento de valores monetários.
-* Validação de registros vazios.
-* Inclusão dos pedidos na tabela final.
-
----
-
-### Controle Transacional
-
-A carga é executada dentro de uma transação:
-
-```sql
-BEGIN TRANSACTION
-...
-COMMIT TRANSACTION
-```
-
-Em caso de erro:
-
-```sql
-ROLLBACK TRANSACTION
-```
-
----
-
-### Logging
-
-Todas as execuções são registradas na tabela `LOG_RODADA`, contendo:
-
-* Data de início
-* Data de fim
-* Quantidade de registros processados
-* Status da execução
-* Mensagem de erro (quando aplicável)
-
----
-
-# Consultas Analíticas Implementadas
-
-## 1. Quantidade de Pedidos Parcelados por Cliente
-
-Calcula a quantidade de pedidos parcelados por cliente, agrupados por semestre e ano.
-
-**Regras:**
-
-* Considera apenas pedidos com mais de uma parcela.
-* Desconsidera pedidos cancelados.
-
----
-
-## 2. Ticket Médio por Cliente
-
-Calcula o valor médio gasto por pedido.
-
-**Agrupamento:**
-
-* Cliente
-* Ano
-* Mês
-
----
-
-## 3. Intervalo Médio Entre Compras
-
-Calcula o tempo médio entre compras sucessivas de cada cliente.
-
-**Métrica:**
-
-* Diferença em dias entre pedidos consecutivos.
-
----
-
-## 4. Classificação de Clientes por Tier
-
-Classifica os clientes conforme o valor total gasto mensalmente.
-
-| Tier   | Faixa de Valor    |
-| ------ | ----------------- |
-| Básico | Até R$ 1.000      |
-| Prata  | Até R$ 2.000      |
-| Ouro   | Até R$ 5.000      |
-| Super  | Acima de R$ 5.000 |
-
----
-
-## 5. Comparativo de Vendas 2019 x 2020
-
-Analisa a variação percentual das vendas dos departamentos:
-
-* Som
-* Papelaria
-
-Desconsiderando pedidos cancelados.
-
-Resultado:
-
-```text
-Departamento
-Total 2019
-Total 2020
-Variação Percentual
-```
-
----
-
-# Respostas Teóricas (Item 2.a)
-
-## 1. Análise de Receita Total por Cliente (Lifetime Value - LTV)
-
-### Descrição
-
-Calcular o valor total gasto por cada cliente ao longo de todo o histórico de compras.
-
-### Resultado Esperado
-
-* Identificação dos clientes mais rentáveis.
-* Criação de programas de fidelidade.
-* Segmentação para retenção e relacionamento.
-
----
-
-## 2. Análise de Desempenho de Departamentos por Região
-
-### Descrição
-
-Cruzar os departamentos dos produtos com a UF dos clientes para identificar padrões de consumo regionais.
-
-### Resultado Esperado
-
-* Identificação de oportunidades regionais.
-* Otimização logística.
-* Campanhas segmentadas por estado.
-
----
-
-## 3. Análise de Clientes Inativos para E-mail Marketing
-
-### Descrição
-
-Selecionar clientes que autorizam o recebimento de e-mails, mas estão sem comprar há determinado período.
-
-### Resultado Esperado
-
-* Criação de campanhas de reengajamento.
-* Aumento da taxa de conversão.
-* Redução do custo de aquisição de clientes.
-
----
-
-# Como Executar
-
-### Passo 1
-
-Executar:
-
-```sql
-01_ddl_e_staging.sql
-```
-
-### Passo 2
-
-Disponibilizar os arquivos:
-
-```text
-C:\Integracao\CADASTROS.csv
-C:\Integracao\PEDIDOS.csv
-```
-
-### Passo 3
-
-Executar:
-
-```sql
-03_bulk_insert.sql
-```
-
-### Passo 4
-
-Executar:
-
-```sql
-EXEC SP_INTEGRACAO_DADOS;
-```
-
-### Passo 5
-
-Executar:
-
-```sql
-04_consolidacoes_item4.sql
-```
-
-para validar os indicadores analíticos.
-
----
-
-# Tecnologias Utilizadas
-
-* SQL Server
-* T-SQL
-* BULK INSERT
-* MERGE
-* CTE (Common Table Expressions)
-* Window Functions (LAG)
-* Controle Transacional
-* Logging de Processamento
-
----
-
-# Considerações
-
-A solução foi desenvolvida seguindo boas práticas de ETL, contemplando:
-
-* Camada de staging.
-* Tratamento de dados.
-* Controle transacional.
-* Monitoramento via logs.
-* Reprocessamento seguro.
-* Consultas analíticas para suporte à tomada de decisão.
