@@ -22,9 +22,8 @@ Execução das consultas analíticas.
 
 2. Modelo de Dados (DER)
 
-'''
+'''mermaid
 
-mermaid
 erDiagramCLIENTES ||--o{ PEDIDOS : "realiza"
 
     CLIENTES {
