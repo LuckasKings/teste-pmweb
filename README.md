@@ -408,13 +408,13 @@ CRM
 
 ### Benefícios
 
-✅ Baixa latência (< 5s)
+Baixa latência (< 5s)
 
-✅ Escalabilidade horizontal
+Escalabilidade horizontal
 
-✅ Processamento assíncrono
+Processamento assíncrono
 
-✅ Integração em tempo real
+Integração em tempo real
 
 ---
 
